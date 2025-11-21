@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clothing Detection</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f8f9ff;
+        }
+
+        .upload-area.dragover {
+            background: #f0f2ff;
+            border-color: #764ba2;
+        }
+
+        #imageInput {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .upload-text {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .preview-container {
+            margin: 20px 0;
+            text-align: center;
+            display: none;
+        }
+
+        #imagePreview {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #result {
+            margin-top: 20px;
+            display: none;
+        }
+
+        .result-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 15px;
+        }
+
+        .predicted-class {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-transform: capitalize;
+        }
+
+        .confidence {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .all-predictions {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+        }
+
+        .all-predictions h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .prediction-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 8px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .prediction-label {
+            font-weight: 600;
+            color: #333;
+            text-transform: capitalize;
+        }
+
+        .prediction-bar-container {
+            flex: 1;
+            margin: 0 15px;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .prediction-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .prediction-value {
+            color: #666;
+            font-weight: 500;
+            min-width: 60px;
+            text-align: right;
+        }
+
+        .error {
+            background: #ff4757;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>👔 Clothing Detection</h1>
+        <p class="subtitle">Upload an image to detect clothing type using AI</p>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📸</div>
+            <div class="upload-text">Click to upload or drag and drop</div>
+            <input type="file" id="imageInput" accept="image/*">
+        </div>
+
+        <div class="preview-container" id="previewContainer">
+            <img id="imagePreview" alt="Preview">
+        </div>
+
+        <button id="detectBtn" onclick="detectClothing()" disabled>Detect Clothing</button>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px; color: #666;">Analyzing image...</p>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // ⚠️ IMPORTANT: Replace with your actual Lambda Function URL
+        const LAMBDA_URL = 'https://443oxk3mf4cagdbbkaumywspau0ffzlg.lambda-url.us-east-1.on.aws/';
+        
+        let selectedFile = null;
+
+        // Setup upload area interactions
+        const uploadArea = document.getElementById('uploadArea');
+        const imageInput = document.getElementById('imageInput');
+        const detectBtn = document.getElementById('detectBtn');
+        const previewContainer = document.getElementById('previewContainer');
+        const imagePreview = document.getElementById('imagePreview');
+
+        uploadArea.addEventListener('click', () => imageInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+
+        imageInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('Please select an image file');
+                return;
+            }
+
+            selectedFile = file;
+            
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                previewContainer.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+
+            // Enable detect button
+            detectBtn.disabled = false;
+            
+            // Hide previous results
+            document.getElementById('result').style.display = 'none';
+        }
+
+        async function detectClothing() {
+            if (!selectedFile) {
+                alert('Please select an image first');
+                return;
+            }
+
+            // Validate Lambda URL
+            if (LAMBDA_URL.includes('YOUR-LAMBDA-URL')) {
+                alert('⚠️ Please update LAMBDA_URL in the code with your actual Lambda Function URL!');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+            detectBtn.disabled = true;
+
+            try {
+                // Convert file to base64
+                const base64String = await fileToBase64(selectedFile);
+                
+                // Remove the data URL prefix (data:image/jpeg;base64,)
+                const base64Data = base64String.split(',')[1];
+
+                console.log('Sending request to:', LAMBDA_URL);
+                console.log('Image size (base64):', base64Data.length, 'characters');
+
+                // Call Lambda function
+                const response = await fetch(LAMBDA_URL, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        image: base64Data
+                    })
+                });
+
+                console.log('Response status:', response.status);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+
+                const result = await response.json();
+                console.log('Success:', result);
+                displayResult(result);
+
+            } catch (error) {
+                console.error('Full error:', error);
+                
+                let errorMessage = error.message;
+                let errorHelp = '';
+                
+                if (error.message.includes('Failed to fetch')) {
+                    errorMessage = 'Cannot connect to Lambda function';
+                    errorHelp = `
+                        <strong>Possible causes:</strong><br>
+                        • Lambda URL is incorrect<br>
+                        • CORS is not properly configured<br>
+                        • Lambda function is not deployed<br>
+                        • Network/firewall blocking the request<br><br>
+                        <strong>Current URL:</strong> ${LAMBDA_URL}<br><br>
+                        <strong>Steps to fix:</strong><br>
+                        1. Check AWS Lambda console for the correct Function URL<br>
+                        2. Ensure Lambda has CORS headers configured<br>
+                        3. Test the URL directly in browser or Postman
+                    `;
+                }
+                
+                document.getElementById('result').innerHTML = 
+                    `<div class="error">
+                        <strong>❌ Error:</strong> ${errorMessage}<br><br>
+                        ${errorHelp}
+                    </div>`;
+                document.getElementById('result').style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                detectBtn.disabled = false;
+            }
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function displayResult(data) {
+            const resultDiv = document.getElementById('result');
+            
+            const confidencePercent = (data.confidence * 100).toFixed(1);
+            
+            let html = `
+                <div class="result-card">
+                    <div class="predicted-class">${data.predicted_class}</div>
+                    <div class="confidence">Confidence: ${confidencePercent}%</div>
+                </div>
+                
+                <div class="all-predictions">
+                    <h3>All Predictions</h3>
+            `;
+
+            for (const [className, probability] of Object.entries(data.all_predictions)) {
+                const percent = (probability * 100).toFixed(1);
+                html += `
+                    <div class="prediction-item">
+                        <span class="prediction-label">${className}</span>
+                        <div class="prediction-bar-container">
+                            <div class="prediction-bar" style="width: ${percent}%"></div>
+                        </div>
+                        <span class="prediction-value">${percent}%</span>
+                    </div>
+                `;
+            }
+
+            html += '</div>';
+            
+            resultDiv.innerHTML = html;
+            resultDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
